@@ -48,6 +48,68 @@ a template, so that 2-4 instances run from one unit file.
 
 ## Bring it up
 
+### Quick start
+
+The whole stack, in order. Nothing here is destructive and everything is
+idempotent, so this is also the sequence for restarting after a reboot.
+
+```bash
+# 1. Postgres. Wait for healthy before step 3.
+docker compose up -d postgres
+docker compose ps                       # STATUS should say (healthy)
+
+# 2. vLLM on the Intel Arc. Slow to start: see the note below.
+docker compose -f deploy/vllm-xpu.compose.yml up -d
+docker compose -f deploy/vllm-xpu.compose.yml logs -f   # wait for "startup complete"
+
+# 3. Schema. Creates nothing that already exists.
+python -m alembic upgrade head
+
+# 4. The chat UI. Only needed the first time, or after changing frontend/.
+cd frontend && npm ci && npm run build && cd ..
+
+# 5. The API.
+PYTHONPATH=src python -m triage.api.app
+```
+
+Then open <http://127.0.0.1:8080>.
+
+The 15-minute `start_period` on the healthcheck is sized for the worst case, so
+`health: starting` says nothing about which case you are in -- read the log. Docker publishes port 8000 the instant
+the container starts, so the port is *listening* long before vLLM is serving:
+a request during that window is accepted and then dropped, which surfaces as
+
+```bash
+curl -s http://127.0.0.1:8000/v1/chat/completions -H "Content-Type: application/json"   -d '{"model":"Qwen3-8B-AWQ","messages":[{"role":"user","content":"say ok"}],
+       "max_tokens":10,"chat_template_kwargs":{"enable_thinking":false}}'
+```
+
+### Checking it worked
+
+```bash
+curl -s http://127.0.0.1:8080/health | python -m json.tool      # bash
+```
+```powershell
+Invoke-RestMethod http://127.0.0.1:8080/health | ConvertTo-Json -Depth 5
+```
+
+`database.ok` and `llm.ok` should both be true. `gmail.connected` reports the
+*OAuth* token only, so it stays false on an App Password install even though
+the mailbox is reachable -- `/queue` is the honest view of that one.
+
+### Stopping
+
+```bash
+docker compose stop                                  # Postgres
+docker compose -f deploy/vllm-xpu.compose.yml stop   # vLLM
+```
+
+`stop` keeps both volumes, so your mail and the model weights survive. `down -v`
+would delete them; the only thing that makes that recoverable is that the mail
+can be re-synced from Gmail and the weights re-downloaded.
+
+## The tech stack
+
 ### 1. Postgres Database
 
 ```bash
@@ -66,7 +128,6 @@ difference is worth understanding before picking.
 
 | | App Password (IMAP) | OAuth (Gmail API) |
 | --- | --- | --- |
-| Google Cloud project | **not needed** | required |
 | Setup | ~1 minute | ~5 minutes, consent screen and all |
 | Scope | whole mailbox, cannot be narrowed | `gmail.readonly` |
 | Revocation | instant, in the Google account page | per-app, in account permissions |
@@ -152,6 +213,8 @@ Five processes: `vllm`, `postgres`, `triage-sync`, `triage-worker` (2-4), and
 `/queue` is the operations surface. Everything on it is a plain POST that
 returns the refreshed panel, so it works with or without htmx.
 
+![The operations console at /queue](images/console.png)
+
 | Action | What it does |
 | --- | --- |
 | **Connect Gmail** | Runs the desktop OAuth flow in a background thread. A browser opens **on the machine running the API**, and the panel polls itself until the token lands. |
@@ -185,6 +248,8 @@ fifteen typed tools -- search and read stored messages, and drive the queue --
 and it emits one constrained JSON object per step through the same
 `structured_outputs` path classification uses, because this vLLM runs without
 `--enable-auto-tool-choice` and native tool calling is not available.
+
+![The chat agent at /chat](images/chat.png)
 
 Two safeguards worth knowing:
 
