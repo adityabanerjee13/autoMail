@@ -213,7 +213,7 @@ Five processes: `vllm`, `postgres`, `triage-sync`, `triage-worker` (2-4), and
 `/queue` is the operations surface. Everything on it is a plain POST that
 returns the refreshed panel, so it works with or without htmx.
 
-![The operations console at /queue](images/console.png)
+![The operations console at /queue](Images/console.png)
 
 | Action | What it does |
 | --- | --- |
@@ -249,7 +249,7 @@ and it emits one constrained JSON object per step through the same
 `structured_outputs` path classification uses, because this vLLM runs without
 `--enable-auto-tool-choice` and native tool calling is not available.
 
-![The chat agent at /chat](images/chat.png)
+![The chat agent at /chat](Images/chat.png)
 
 Two safeguards worth knowing:
 
