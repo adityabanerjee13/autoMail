@@ -1,0 +1,27 @@
+From: billing@examplebank.com
+To: owner@example.com
+Subject: Your March statement is ready - payment due 14 March
+Date: Sun, 1 Mar 2026 09:12:00 +0000
+Message-ID: <stmt-2026-03@examplebank.com>
+Delivered-To: owner@example.com
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="m1"
+
+--m1
+Content-Type: text/plain; charset="utf-8"
+
+Your statement for account ending 4417 is available.
+Minimum payment 25.00 due by 14 March 2026.
+
+--
+Example Bank plc
+This email and any attachments is confidential.
+
+--m1
+Content-Type: application/pdf; name="statement-2026-03.pdf"
+Content-Disposition: attachment; filename="statement-2026-03.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKJcOkw7zDtsOfCg==
+
+--m1--

@@ -1,0 +1,13 @@
+{# htmx swaps this in place of the form after a correction is appended. #}
+<div class="correction" style="margin:14px 0; padding:12px; border:1px solid var(--accent);
+     border-radius:6px">
+  Saved as <span class="pill">{{ classification.category }}</span>
+  <span class="pill {% if classification.is_important %}important{% endif %}">
+    {{ 'important' if classification.is_important else 'not important' }}
+  </span>
+  <span class="muted">
+    appended as classification #{{ classification.id }} (source=human);
+    the model's original judgment is still on the record.
+  </span>
+  <a href="/messages/{{ message.id }}">view history</a>
+</div>

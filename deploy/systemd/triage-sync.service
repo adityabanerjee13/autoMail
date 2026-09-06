@@ -1,0 +1,30 @@
+[Unit]
+Description=triage sync daemon (Pub/Sub pull, writes messages, enqueues jobs)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=triage
+Group=triage
+WorkingDirectory=/opt/triage
+EnvironmentFile=/opt/triage/.env
+ExecStart=/opt/triage/.venv/bin/triage-sync
+Restart=always
+RestartSec=15
+
+# Holds the refresh token. Nothing else on the box should be able to read it.
+UMask=0077
+ReadWritePaths=/opt/triage/data
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+# APScheduler runs inside this process: watch renewal, the hourly
+# reconciliation sweep, the stuck-job requeue, and the weekly eval. If this
+# unit is down, Pub/Sub deliveries are lost *and* nothing sweeps for them --
+# which is why it restarts always.
+
+[Install]
+WantedBy=multi-user.target

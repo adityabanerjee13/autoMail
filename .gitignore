@@ -1,0 +1,16 @@
+data/
+!data/.gitkeep
+.env
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# React chat UI: dependencies, and the build output that vite regenerates.
+frontend/node_modules/
+src/triage/api/static/app/

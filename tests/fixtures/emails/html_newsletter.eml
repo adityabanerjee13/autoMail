@@ -1,0 +1,28 @@
+From: "The Weekly Dispatch" <digest@newsletter.example.io>
+To: owner@example.com
+Subject: =?utf-8?B?VGhlIFdlZWtseSBEaXNwYXRjaCDigJMgaXNzdWUgMjE0?=
+Date: Sat, 7 Mar 2026 07:00:00 +0000
+Message-ID: <issue-214@newsletter.example.io>
+Delivered-To: owner@example.com
+List-Id: <dispatch.newsletter.example.io>
+List-Unsubscribe: <https://newsletter.example.io/u/abc123>
+Precedence: bulk
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="b1"
+
+--b1
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+<html><head><style>.x{color:red}</style></head><body>
+<table><tr><td>
+<h1>Issue 214</h1>
+<p>This week: three essays on <b>distributed systems</b>.</p>
+<script>window.track('open')</script>
+<ul><li>A long read on urban planning</li><li>The usual links</li></ul>
+</td></tr></table>
+<p>You are receiving this because you subscribed.</p>
+<p><a href="https://newsletter.example.io/u/abc123">Unsubscribe</a></p>
+</body></html>
+
+--b1--

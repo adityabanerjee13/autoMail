@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}queue{% endblock %}
+{% block content %}
+
+<h2 style="margin-top:0">Operations</h2>
+<p class="muted" style="max-width:74ch">
+  Connect the mailbox, pull new mail, and drive the queue. Running the queue
+  here drains it inside the API process using the same claim-and-run path as
+  <code>triage-worker</code>, so it is safe to do this while workers are also
+  up — Postgres hands each job to exactly one of them.
+</p>
+
+{# _console.html carries its own <div id="console"> wrapper, because every
+   action route returns that fragment and swaps it outerHTML. Do not wrap it
+   again here or the ids collide and htmx swaps the wrong node. #}
+{% include "_console.html" %}
+{% endblock %}

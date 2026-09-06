@@ -1,0 +1,29 @@
+[Unit]
+Description=vLLM OpenAI-compatible server (owns the GPU)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=triage
+Group=triage
+WorkingDirectory=/opt/triage
+EnvironmentFile=/opt/triage/deploy/vllm.env
+ExecStart=/opt/triage/.venv/bin/vllm serve ${MODEL} \
+  --served-model-name ${SERVED_MODEL_NAME} \
+  --host ${HOST} --port ${PORT} \
+  --gpu-memory-utilization ${GPU_MEMORY_UTILIZATION} \
+  --max-model-len ${MAX_MODEL_LEN} \
+  --max-num-seqs ${MAX_NUM_SEQS} \
+  --quantization ${QUANTIZATION} \
+  --dtype ${DTYPE}
+Restart=always
+RestartSec=10
+# Model load takes minutes on a cold page cache; systemd must not give up.
+TimeoutStartSec=900
+
+# Bare systemd rather than Docker on purpose: GPU passthrough in a container
+# adds a debugging layer that buys nothing on a single machine.
+
+[Install]
+WantedBy=multi-user.target

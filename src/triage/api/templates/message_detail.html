@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ message.subject or '(no subject)' }}{% endblock %}
+{% block content %}
+
+<p><a href="/">&larr; all messages</a></p>
+
+<h2 style="margin-bottom:4px">{{ message.subject or '(no subject)' }}</h2>
+<p class="muted">
+  {{ message.from_addr }} &rarr; {{ message.to_addrs | join(', ') }}
+  {% if message.cc_addrs %}(cc {{ message.cc_addrs | join(', ') }}){% endif %}
+  <br>{{ message.internal_date | localdt_full }}
+  &middot; gmail id <code>{{ message.gmail_id }}</code>
+  {% if message.labels %}&middot; {{ message.labels | join(', ') }}{% endif %}
+</p>
+
+{% set current = history[0] if history else None %}
+{% include "_correct_form.html" %}
+
+<h3>Body (cleaned)</h3>
+<pre>{{ message.body_clean }}</pre>
+
+<h3>Judgment history</h3>
+{#
+  Newest first. The superseded rows are kept deliberately: the pair of what the
+  model said and what the human said afterwards is the phase-2 training signal.
+#}
+<table>
+  <thead>
+    <tr><th>when</th><th>source</th><th>important</th><th>category</th><th>confidence</th>
+        <th>model / prompt</th><th>reason</th><th>latency</th></tr>
+  </thead>
+  <tbody>
+  {% for c in history %}
+    <tr>
+      <td class="muted" style="white-space:nowrap"
+          title="{{ c.created_at | localdt_full }}">{{ c.created_at | localdt }}</td>
+      <td><span class="pill">{{ c.source }}</span></td>
+      <td>{{ 'yes' if c.is_important else 'no' }}</td>
+      <td>{{ c.category }}</td>
+      <td class="muted">
+        {{ c.payload.get('importance_confidence', '?') }} / {{ c.payload.get('category_confidence', '?') }}
+      </td>
+      <td class="muted">{{ c.model_id }} / {{ c.prompt_version }} / {{ c.schema_version }}</td>
+      <td class="reason">{{ c.payload.get('reason', '') }}</td>
+      <td class="muted">{{ c.latency_ms if c.latency_ms is not none else '-' }} ms</td>
+    </tr>
+    <tr>
+      <td colspan="8">
+        <details>
+          <summary class="muted">raw response</summary>
+          <pre>{{ c.raw_response }}</pre>
+        </details>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="8" class="muted">not classified yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

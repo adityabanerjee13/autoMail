@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}status{% endblock %}
+{% block content %}
+
+{% if health.gmail.needs_reconnect %}
+{#
+  Built in from day one on purpose. Refresh tokens carrying Gmail scopes are
+  invalidated when the account password changes, and without this banner the
+  daemon just stops receiving mail quietly.
+#}
+<div class="banner">
+  <b>Gmail account needs reconnecting.</b>
+  <div class="muted">{{ health.gmail.reason }}</div>
+  <p style="margin-bottom:0">
+    Re-consent on the machine itself:
+    <code>python -m triage.ingest.auth</code>
+  </p>
+</div>
+{% endif %}
+
+<div class="grid" style="margin-bottom:20px">
+  <div class="stat"><b>{{ 'ok' if health.database.ok else 'down' }}</b><span class="muted">postgres</span></div>
+  <div class="stat"><b>{{ 'ok' if health.llm.ok else 'down' }}</b><span class="muted">vllm</span></div>
+  <div class="stat"><b>{{ 'ok' if health.gmail.connected else 'reconnect' }}</b><span class="muted">gmail</span></div>
+  <div class="stat"><b>{{ health.jobs.get('pending', 0) }}</b><span class="muted">pending jobs</span></div>
+  <div class="stat"><b>{{ health.jobs.get('running', 0) }}</b><span class="muted">running</span></div>
+  <div class="stat"><b>{{ health.jobs.get('dead', 0) }}</b><span class="muted">dead-lettered</span></div>
+</div>
+
+<h3>Labelling versions</h3>
+<p class="muted">
+  Rows written now carry
+  <code>{{ health.versions.model_id }}</code> /
+  <code>{{ health.versions.prompt_version }}</code> /
+  <code>{{ health.versions.schema_version }}</code>.
+  Judgments from different triples are not comparable; the eval script takes a
+  pair so runs can be compared rather than argued about.
+</p>
+
+<h3>Sync</h3>
+<pre>{{ health.sync }}</pre>
+
+<h3>Latest judgment per category</h3>
+<table>
+  <thead><tr><th>category</th><th>count</th></tr></thead>
+  <tbody>
+    {% for name, n in stats.by_category.items() %}
+    <tr><td>{{ name }}</td><td>{{ n }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3>By source</h3>
+<table>
+  <thead><tr><th>source</th><th>count</th></tr></thead>
+  <tbody>
+    {% for name, n in stats.by_source.items() %}
+    <tr><td>{{ name }}</td><td>{{ n }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

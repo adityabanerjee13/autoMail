@@ -1,0 +1,35 @@
+[Unit]
+Description=triage worker %i (LISTEN/NOTIFY, runs the pipeline)
+After=network-online.target postgresql.service vllm.service
+Wants=network-online.target
+# Not Requires=: the worker survives a vLLM restart by backing off and
+# retrying, and a hard dependency would take the whole fleet down with it.
+After=vllm.service
+
+[Service]
+Type=exec
+User=triage
+Group=triage
+WorkingDirectory=/opt/triage
+EnvironmentFile=/opt/triage/.env
+ExecStart=/opt/triage/.venv/bin/triage-worker
+Restart=always
+RestartSec=10
+
+# SIGTERM makes the worker stop claiming and finish what it has in flight.
+KillSignal=SIGTERM
+TimeoutStopSec=120
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/triage/data
+
+# Templated so 2-4 instances run side by side:
+#   systemctl enable --now triage-worker@1 triage-worker@2
+# Each holds one LISTEN connection and WORKER_CONCURRENCY in-flight vLLM
+# requests, so total GPU concurrency is instances x WORKER_CONCURRENCY.
+
+[Install]
+WantedBy=multi-user.target

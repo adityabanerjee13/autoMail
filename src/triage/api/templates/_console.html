@@ -1,0 +1,308 @@
+{#
+  The whole operations console. Returned intact by every action route so a
+  click updates queue depth, runner state and the unprocessed list together --
+  a partial update would show a cleared queue next to a stale count.
+
+  hx-target="#console" hx-swap="outerHTML" on the wrapper; while the runner is
+  going, it polls itself every 3s so progress is visible without a refresh.
+#}
+<div id="console"
+     {% if runner.running or gmail.connecting %}hx-get="/queue" hx-trigger="every 3s" hx-target="#console" hx-swap="outerHTML"{% endif %}>
+
+  {# ---------------- gmail ---------------- #}
+  <section style="border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:16px">
+    <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap">
+      <b>Gmail</b>
+      {% if gmail.connected %}
+        <span class="pill important">connected{% if gmail.method %} · {{ gmail.method }}{% endif %}</span>
+      {% elif gmail.connecting %}
+        <span class="pill low">waiting for consent…</span>
+      {% else %}
+        <span class="pill low">not connected</span>
+      {% endif %}
+      <span style="flex:1"></span>
+
+      {% if gmail.oauth_connected %}
+        <form method="post" action="/gmail/sync" hx-post="/gmail/sync"
+              hx-target="#console" hx-swap="outerHTML" style="display:inline">
+          <button type="submit"><b>Sync mail now</b></button>
+        </form>
+        <form method="post" action="/gmail/disconnect" hx-post="/gmail/disconnect"
+              hx-target="#console" hx-swap="outerHTML" style="display:inline"
+              onsubmit="return confirm('Remove the stored refresh token? The OAuth client is kept.')">
+          <button type="submit">Disconnect</button>
+        </form>
+      {% elif gmail.has_client_secrets %}
+        <form method="post" action="/gmail/connect" hx-post="/gmail/connect"
+              hx-target="#console" hx-swap="outerHTML" style="display:inline">
+          <button type="submit" {% if gmail.connecting %}disabled{% endif %}>
+            {% if gmail.connecting %}consent in progress…{% else %}<b>Connect Gmail</b>{% endif %}
+          </button>
+        </form>
+      {% endif %}
+    </div>
+
+    {% if gmail.connecting %}
+      <p class="muted">
+        A browser window has opened <b>on the machine running this API</b>. Finish
+        consent there and this panel updates itself when the token lands. Expect an
+        "unverified app" interstitial — that is normal for a restricted scope on an
+        unpublished client; click through it.
+      </p>
+      {% if gmail.auth_url %}
+        <p style="margin-bottom:0">
+          Browser didn't open?
+          <a href="{{ gmail.auth_url }}" target="_blank" rel="noopener">Open the consent page</a>
+        </p>
+      {% endif %}
+
+    {% elif gmail.imap %}
+      {# Connected the OpenClaw way: IMAP with an App Password. #}
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+        <span class="pill">IMAP · {{ gmail.imap }}</span>
+        <form method="post" action="/gmail/imap-sync" hx-post="/gmail/imap-sync"
+              hx-target="#console" hx-swap="outerHTML" class="inline">
+          <label class="muted">last
+            <select name="days">
+              <option value="1">1 day</option>
+              <option value="7" selected>7 days</option>
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+            </select>
+          </label>
+          <button type="submit"><b>Sync mail now</b></button>
+        </form>
+        <form method="post" action="/gmail/app-password/forget"
+              hx-post="/gmail/app-password/forget" hx-target="#console" hx-swap="outerHTML"
+              style="display:inline"
+              onsubmit="return confirm('Forget the stored App Password?')">
+          <button type="submit">Disconnect</button>
+        </form>
+      </div>
+      <p class="muted" style="margin-bottom:0">
+        Reading <code>{{ gmail.imap }}</code> over IMAP, read-only. Revoke instantly at
+        <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Google
+        App passwords</a> — that kills access the moment you delete it, with no token to expire.
+      </p>
+
+    {% elif not gmail.connected and not gmail.has_client_secrets %}
+      {#
+        Two ways in, and they are genuinely different in cost.
+
+        App Password + IMAP is how OpenClaw's imap-smtp-email skill connects:
+        no Google Cloud project, no consent screen, about a minute. The trade is
+        that an App Password is a standing credential with full mailbox access
+        which cannot be scoped read-only, so it is offered first for reach but
+        described honestly.
+
+        OAuth is what n8n does, and self-hosted n8n cannot avoid the Google
+        Cloud project either -- only n8n Cloud can, because it ships a
+        pre-verified client. It is the better credential: scoped to
+        gmail.readonly and revocable per-app.
+      #}
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(330px,1fr)); gap:14px; margin-top:10px">
+
+        <div style="border:1px solid var(--accent); border-radius:6px; padding:12px">
+          <b>App Password</b> <span class="pill">fastest</span>
+          <p class="muted" style="margin:6px 0">
+            No Google Cloud project. Turn on
+            <a href="https://myaccount.google.com/signinoptions/two-step-verification"
+               target="_blank" rel="noopener">2-Step Verification</a>, generate a password at
+            <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">App
+            passwords</a>, paste it here. This is how OpenClaw connects.
+          </p>
+          <form method="post" action="/gmail/app-password" hx-post="/gmail/app-password"
+                hx-target="#console" hx-swap="outerHTML">
+            <p style="margin:6px 0">
+              <input type="email" name="email" placeholder="you@gmail.com" required
+                     style="width:100%">
+            </p>
+            <p style="margin:6px 0">
+              <input type="password" name="app_password" required style="width:100%"
+                     placeholder="16-character App Password"
+                     autocomplete="off" spellcheck="false">
+            </p>
+            <button type="submit"><b>Connect with App Password</b></button>
+          </form>
+          <p class="muted" style="margin-bottom:0; font-size:12px">
+            Verified against Gmail before it is saved. Stored on this machine only.
+            Note it grants full mailbox access and cannot be narrowed to read-only —
+            that is the cost of skipping OAuth.
+          </p>
+        </div>
+
+        <div style="border:1px solid var(--line); border-radius:6px; padding:12px">
+          <b>OAuth</b> <span class="pill">read-only scope</span>
+          <p class="muted" style="margin:6px 0">
+            Scoped to <code>{{ gmail.scope }}</code> and revocable per-app, but it needs a
+            Google Cloud project. This is n8n's route; self-hosted n8n needs the same project.
+          </p>
+          <ol class="muted" style="margin:0 0 8px; padding-left:20px; font-size:12px">
+            <li><a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com"
+                target="_blank" rel="noopener">Enable the Gmail API</a></li>
+            <li><a href="https://console.cloud.google.com/apis/credentials" target="_blank"
+                rel="noopener">Credentials</a> → OAuth client ID → <b>Desktop app</b> → download JSON</li>
+            <li>Consent screen: add the scope above, then set publishing to
+                <b>In production</b> — in "Testing" the refresh token dies after 7 days</li>
+          </ol>
+          <form method="post" action="/gmail/credentials" enctype="multipart/form-data"
+                hx-post="/gmail/credentials" hx-encoding="multipart/form-data"
+                hx-target="#console" hx-swap="outerHTML" class="inline">
+            <input type="file" name="file" accept=".json,application/json" required>
+            <button type="submit">Upload client JSON</button>
+          </form>
+        </div>
+      </div>
+
+    {% elif not gmail.connected %}
+      <p class="muted" style="margin-bottom:0">
+        OAuth client is in place. {{ gmail.reason }}
+      </p>
+    {% endif %}
+
+    {% if gmail.error %}
+      <div class="banner" style="margin:10px 0 0">{{ gmail.error }}</div>
+    {% elif gmail.last_sync %}
+      <p class="muted" style="margin:8px 0 0">{{ gmail.last_sync }}</p>
+    {% endif %}
+
+    <p class="muted" style="margin-bottom:0">
+      Watermark:
+      {% if sync.history_id %}historyId <code>{{ sync.history_id }}</code>{% else %}<i>not set — first sync will checkpoint</i>{% endif %}
+      {% if sync.last_reconcile_at %} · last sweep {{ sync.last_reconcile_at | localdt }}{% endif %}
+    </p>
+  </section>
+
+  {% if gmail.connected and not messages_total %}
+    <div class="banner" style="margin-bottom:16px">
+      <b>Connected, but no mail has been pulled yet.</b>
+      <div class="muted">
+        Signing in stores the credential; it does not fetch anything. Hit
+        <b>Sync mail now</b> above to pull your mail in — then
+        <b>Run entire queue</b> to classify it.
+      </div>
+    </div>
+  {% endif %}
+
+  {# ---------------- counts ---------------- #}
+  <div class="grid" style="margin-bottom:16px">
+    <div class="stat"><b>{{ unprocessed_count }}</b><span class="muted">unprocessed</span></div>
+    <div class="stat"><b>{{ jobs.get('pending', 0) }}</b><span class="muted">queued</span></div>
+    <div class="stat"><b>{{ jobs.get('running', 0) }}</b><span class="muted">running</span></div>
+    <div class="stat"><b>{{ jobs.get('done', 0) }}</b><span class="muted">done</span></div>
+    <div class="stat"><b>{{ jobs.get('dead', 0) }}</b><span class="muted">dead-lettered</span></div>
+  </div>
+
+  {# ---------------- queue control ---------------- #}
+  <section style="border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:16px">
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+      <b>Queue</b>
+      {% if runner.stopping %}
+        <span class="pill low">
+          stopping after message {{ runner.current_message_id or '—' }}…
+        </span>
+      {% elif runner.running %}
+        <span class="pill important">
+          running{% if runner.current_message_id %} · message {{ runner.current_message_id }}{% endif %}
+        </span>
+      {% else %}
+        <span class="pill">idle</span>
+      {% endif %}
+      <span style="flex:1"></span>
+
+      {% if runner.running %}
+        <form method="post" action="/queue/stop" hx-post="/queue/stop"
+              hx-target="#console" hx-swap="outerHTML" style="display:inline">
+          <button type="submit" {% if runner.stopping %}disabled{% endif %}>
+            {% if runner.stopping %}stopping…{% else %}Stop after current{% endif %}
+          </button>
+        </form>
+      {% else %}
+        <form method="post" action="/queue/run" hx-post="/queue/run"
+              hx-target="#console" hx-swap="outerHTML" style="display:inline">
+          <button type="submit"><b>Run entire queue</b></button>
+        </form>
+      {% endif %}
+
+      <form method="post" action="/queue/retry-dead" hx-post="/queue/retry-dead"
+            hx-target="#console" hx-swap="outerHTML" style="display:inline">
+        <button type="submit" {% if not jobs.get('dead') %}disabled{% endif %}>
+          Retry dead-lettered
+        </button>
+      </form>
+
+      <form method="post" action="/queue/clear" hx-post="/queue/clear"
+            hx-target="#console" hx-swap="outerHTML" style="display:inline"
+            onsubmit="return confirm('Delete every queued job? Messages are kept and can be re-queued.')">
+        <button type="submit" {% if not jobs.get('pending') %}disabled{% endif %}>
+          Clear queue
+        </button>
+      </form>
+    </div>
+
+    {% if runner.stopping %}
+      <p class="muted" style="margin-bottom:0">
+        Finishing the message in flight before stopping — a classification cannot be
+        interrupted halfway without losing it. Up to about {{ '25' }} seconds.
+      </p>
+    {% endif %}
+    {% if runner.started_at %}
+      <p class="muted" style="margin-bottom:0">
+        {{ runner.processed }} classified · {{ runner.skipped }} skipped ·
+        {{ runner.failed }} failed
+        {% if runner.finished_at %} · finished{% else %} · in progress{% endif %}
+        {% if runner.last_error %}<br><span style="color:var(--accent)">{{ runner.last_error }}</span>{% endif %}
+      </p>
+    {% endif %}
+  </section>
+
+  {# ---------------- unprocessed ---------------- #}
+  <h3 style="margin-bottom:6px">Unprocessed mail</h3>
+  <table>
+    <thead>
+      <tr><th>date</th><th>from</th><th>subject</th><th>job</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="muted" style="white-space:nowrap"
+            title="{{ r.internal_date | localdt_full }}">{{ r.internal_date | localdt }}</td>
+        <td class="muted">{{ r.from_addr }}</td>
+        <td><a class="subject" href="/messages/{{ r.id }}">{{ r.subject or '(no subject)' }}</a></td>
+        <td>
+          {% if r.job_status == 'pending' %}<span class="pill">queued</span>
+          {% elif r.job_status == 'running' %}<span class="pill important">running</span>
+          {% elif r.job_status == 'dead' %}<span class="pill low" title="{{ r.last_error }}">dead · {{ r.attempts }} tries</span>
+          {% elif r.job_status == 'done' %}<span class="pill">done, unclassified</span>
+          {% else %}<span class="muted">not queued</span>{% endif %}
+        </td>
+        <td>
+          <form method="post" action="/messages/{{ r.id }}/process"
+                hx-post="/messages/{{ r.id }}/process"
+                hx-target="#console" hx-swap="outerHTML" style="display:inline">
+            <button type="submit" {% if runner.running %}disabled{% endif %}
+                    title="Classify only this message">Process</button>
+          </form>
+          {% if r.job_status == 'pending' %}
+            {# Only offered for queued rows. A 'running' job cannot be pulled
+               out from under the runner holding it. #}
+            <form method="post" action="/messages/{{ r.id }}/dequeue"
+                  hx-post="/messages/{{ r.id }}/dequeue"
+                  hx-target="#console" hx-swap="outerHTML" style="display:inline">
+              <button type="submit"
+                      title="Take this message out of the queue; the message is kept">Remove</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">
+        Nothing unprocessed. Everything stored has a judgment at the current model and prompt.
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if unprocessed_count > rows|length %}
+    <p class="muted">Showing {{ rows|length }} of {{ unprocessed_count }}. "Run entire queue" takes all of them.</p>
+  {% endif %}
+</div>

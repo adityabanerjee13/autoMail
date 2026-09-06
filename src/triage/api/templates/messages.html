@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}messages{% endblock %}
+{% block content %}
+
+<div class="grid" style="margin-bottom:18px">
+  <div class="stat"><b>{{ stats.messages }}</b><span class="muted">messages</span></div>
+  <div class="stat"><b>{{ stats.classified }}</b><span class="muted">classified</span></div>
+  <div class="stat"><b>{{ stats.important }}</b><span class="muted">important</span></div>
+  <div class="stat"><b>{{ stats.jobs.get('pending', 0) }}</b><span class="muted">queued</span></div>
+  <div class="stat"><b>{{ stats.jobs.get('dead', 0) }}</b><span class="muted">dead-lettered</span></div>
+</div>
+
+<form class="inline" method="get" action="/" style="margin-bottom:14px">
+  <input type="search" name="q" value="{{ filters.q or '' }}" placeholder="sender or subject">
+  <select name="category">
+    <option value="">all categories</option>
+    {% for c in categories %}
+    <option value="{{ c }}" {% if filters.category == c %}selected{% endif %}>{{ c }}</option>
+    {% endfor %}
+  </select>
+  <select name="important">
+    <option value="">any</option>
+    <option value="true" {% if filters.important is true %}selected{% endif %}>important</option>
+    <option value="false" {% if filters.important is false %}selected{% endif %}>not important</option>
+  </select>
+  <button type="submit">filter</button>
+</form>
+
+<table>
+  <thead>
+    <tr>
+      <th>date</th><th>from</th><th>subject</th><th>category</th><th>flags</th><th>reason</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% include "_rows.html" %}
+  </tbody>
+</table>
+
+<p style="margin-top:16px">
+  {% if page > 1 %}<a href="?page={{ page - 1 }}">&larr; newer</a>{% endif %}
+  {% if has_next %}<a href="?page={{ page + 1 }}" style="margin-left:12px">older &rarr;</a>{% endif %}
+</p>
+{% endblock %}

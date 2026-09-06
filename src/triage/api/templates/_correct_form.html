@@ -1,0 +1,35 @@
+{#
+  The correction form. Expects `message`, `categories`, and `current` (the
+  latest classification, or None).
+
+  Category options come from taxonomy.category_values() -- never hardcode the
+  list here, or the UI and the guided-decoding schema drift apart and you get
+  silent misclassification that is very hard to debug.
+
+  Posts through htmx when it is available and as a plain form when it is not.
+#}
+<form class="correction inline" method="post"
+      action="/review/{{ message.id }}"
+      hx-post="/review/{{ message.id }}"
+      hx-target="this"
+      hx-swap="outerHTML"
+      style="margin:14px 0; padding:12px; border:1px solid var(--line); border-radius:6px">
+  <label>category
+    <select name="category">
+      {% for c in categories %}
+      <option value="{{ c }}" {% if current and current.category == c %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <input type="checkbox" name="is_important" value="true"
+           {% if current and current.is_important %}checked{% endif %}> important
+  </label>
+  <label>
+    <input type="checkbox" name="action_required" value="true"
+           {% if current and current.payload.get('action_required') %}checked{% endif %}>
+    action required
+  </label>
+  <input type="text" name="reason" placeholder="why (optional)" style="flex:1; min-width:220px">
+  <button type="submit">save correction</button>
+</form>

@@ -1,0 +1,30 @@
+[Unit]
+Description=triage API and review UI
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=triage
+Group=triage
+WorkingDirectory=/opt/triage
+EnvironmentFile=/opt/triage/.env
+# The entry point, not bare uvicorn: it configures the event loop policy before
+# uvicorn builds its loop, and takes host/port from settings rather than
+# duplicating them here.
+ExecStart=/opt/triage/.venv/bin/triage-api
+Restart=always
+RestartSec=10
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/triage/data
+
+# Binds to 127.0.0.1 by default. This serves a personal mailbox and has no
+# authentication of its own -- put it behind an SSH tunnel or a reverse proxy
+# that does before changing API_HOST.
+
+[Install]
+WantedBy=multi-user.target

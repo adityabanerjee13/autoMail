@@ -1,0 +1,38 @@
+{% for row in rows %}
+<tr>
+  <td class="muted" style="white-space:nowrap"
+      title="{{ row.message.internal_date | localdt_full }}">{{ row.message.internal_date | localdt }}</td>
+  <td class="muted">{{ row.message.from_addr }}</td>
+  <td>
+    <a class="subject" href="/messages/{{ row.message.id }}">
+      {{ row.message.subject or '(no subject)' }}
+    </a>
+  </td>
+  <td>
+    {% if row.classification %}
+      <span class="pill">{{ row.classification.category }}</span>
+    {% else %}
+      <span class="muted">unclassified</span>
+    {% endif %}
+  </td>
+  <td>
+    {% if row.classification and row.classification.is_important %}
+      <span class="pill important">important</span>
+    {% endif %}
+    {% if row.classification and row.classification.payload.get('action_required') %}
+      <span class="pill">action</span>
+    {% endif %}
+    {% if row.classification and row.classification.source != 'llm' %}
+      <span class="pill">{{ row.classification.source }}</span>
+    {% endif %}
+    {% if row.needs_review %}
+      <span class="pill low">review</span>
+    {% endif %}
+  </td>
+  <td class="reason">
+    {{ row.classification.payload.get('reason', '') if row.classification else '' }}
+  </td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="muted">nothing here yet.</td></tr>
+{% endfor %}

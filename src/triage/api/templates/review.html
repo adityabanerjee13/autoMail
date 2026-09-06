@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}review queue{% endblock %}
+{% block content %}
+
+<h2>Review queue</h2>
+<p class="muted" style="max-width:70ch">
+  Every message the model was unsure about -- low confidence on importance or on
+  category. Correcting one appends a row with source='human'; the model's
+  original judgment is kept alongside it. These pairs are the dataset the
+  phase-2 classifier trains on, so a correction here is worth more than a
+  correction anywhere else.
+</p>
+
+{% for row in rows %}
+<div style="border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:14px">
+  <div class="muted" style="margin-bottom:6px">
+    <span title="{{ row.message.internal_date | localdt_full }}">{{ row.message.internal_date | localdt }}</span> &middot; {{ row.message.from_addr }}
+  </div>
+  <div class="subject" style="margin-bottom:6px">
+    <a href="/messages/{{ row.message.id }}">{{ row.message.subject or '(no subject)' }}</a>
+  </div>
+  <div class="muted" style="margin-bottom:8px">{{ row.message.snippet }}</div>
+  <div style="margin-bottom:6px">
+    <span class="pill {% if row.classification.is_important %}important{% endif %}">
+      {{ 'important' if row.classification.is_important else 'not important' }}
+    </span>
+    <span class="pill">{{ row.classification.category }}</span>
+    <span class="pill low">
+      {{ row.classification.payload.get('importance_confidence') }} /
+      {{ row.classification.payload.get('category_confidence') }}
+    </span>
+  </div>
+  <div class="reason" style="margin-bottom:4px">
+    {{ row.classification.payload.get('reason', '') }}
+  </div>
+  {% set message = row.message %}
+  {% set current = row.classification %}
+  {% include "_correct_form.html" %}
+</div>
+{% else %}
+<p class="muted">Queue is empty -- nothing came back low-confidence.</p>
+{% endfor %}
+
+<p>
+  {% if page > 1 %}<a href="?page={{ page - 1 }}">&larr; previous</a>{% endif %}
+  {% if has_next %}<a href="?page={{ page + 1 }}" style="margin-left:12px">next &rarr;</a>{% endif %}
+</p>
+{% endblock %}

@@ -1,0 +1,35 @@
+# Postgres only. vLLM runs under systemd on the host -- GPU passthrough in a
+# container adds a debugging layer that buys nothing on a single machine.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: triage-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: triage
+      POSTGRES_PASSWORD: triage
+      POSTGRES_DB: triage
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    command:
+      # 18 GB total on this box, shared with the worker, sentence-transformers
+      # and MIME parsing. Keep Postgres modest.
+      - "postgres"
+      - "-c"
+      - "shared_buffers=2GB"
+      - "-c"
+      - "work_mem=32MB"
+      - "-c"
+      - "maintenance_work_mem=512MB"
+      - "-c"
+      - "max_connections=50"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U triage -d triage"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

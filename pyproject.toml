@@ -1,0 +1,91 @@
+[project]
+name = "email-triage"
+version = "0.1.0"
+description = "On-prem Gmail triage pipeline: ingest, classify, extract, persist. All inference local."
+requires-python = ">=3.11"
+
+dependencies = [
+    # ingestion
+    "google-api-python-client>=2.130",
+    "google-auth>=2.30",
+    "google-auth-oauthlib>=1.2",
+    "google-cloud-pubsub>=2.21",
+    "imapclient>=3.0",
+
+    # storage
+    "sqlalchemy[asyncio]>=2.0.30",
+    "psycopg[binary,pool]>=3.2",
+    "pgvector>=0.3.0",
+    "alembic>=1.13",
+
+    # schemas / config
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+
+    # inference
+    "openai>=1.40",
+    "sentence-transformers>=3.0",
+
+    # parsing
+    "selectolax>=0.3.21",
+
+    # api / ui
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+
+    # scheduling
+    "apscheduler>=3.10",
+
+    # misc
+    "structlog>=24.1",
+    "tenacity>=8.3",
+]
+
+[project.optional-dependencies]
+# talon pulls lxml + regex and historically breaks on new CPython releases.
+# parse/dequote.py degrades to a pure-stdlib heuristic when it is absent, so it
+# is kept out of the base dependency set on purpose.
+dequote = ["talon>=1.6.0"]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    # Already present transitively via openai, but the route tests use
+    # fastapi.testclient, which imports it directly. Depending on someone
+    # else's dependency is how a test suite breaks on an unrelated upgrade.
+    "httpx>=0.27",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+triage-api = "triage.api.app:main"
+triage-worker = "triage.worker:main"
+triage-sync = "triage.ingest.daemon:main"
+triage-scheduler = "triage.scheduler:main"
+triage-backfill = "triage.backfill:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/triage"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+asyncio_mode = "auto"
+markers = [
+    "integration: requires a live PostgreSQL at TEST_DATABASE_URL",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests", "eval"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Depends() in an argument default is the FastAPI idiom, not a mutable default.
+"src/triage/api/routes/*.py" = ["B008"]
